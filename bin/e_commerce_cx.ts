@@ -11,6 +11,7 @@ import { OrdersApplicationStack } from '../lib/ordersApplication-stack';
 const app = new cdk.App();
 const env = {
   region: 'us-east-1',
+  
 };
 //criado para ver em qual ambiente esta sendo executado e gerenciamento de custos
 const tags = {
