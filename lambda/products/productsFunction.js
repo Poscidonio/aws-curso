@@ -183,6 +183,7 @@ function createProduct(product) {
       code: product.code,
       price: product.price,
       model: product.model,
+      productUrl: product.productUrl,
     },
   };
   return ddbClient.put(params).promise();
@@ -194,12 +195,14 @@ function updateProduct(productId, product) {
     Key: {
       id: productId,
     },
-    UpdateExpression: 'set productName = :n, code = :c, price = :p, model = :m',
+    UpdateExpression:
+      'set productName = :n, code = :c, price = :p, model = :m, productUrl = :u',
     ExpressionAttributeValues: {
       ':n': product.productName,
       ':c': product.code,
       ':p': product.price,
       ':m': product.model,
+      ':u': product.productUrl,
     },
   };
   return ddbClient.update(params).promise();

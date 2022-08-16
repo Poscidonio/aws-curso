@@ -49,15 +49,58 @@ export class ECommerceApiStack extends cdk.Stack {
     ordersResource.addMethod('GET', ordersFunctionIntegration);
 
     //DELETE /orders?email=guilhermeaugusto@cooxupe.com.br&orderId=123
-    ordersResource.addMethod('DELETE', ordersFunctionIntegration,{
+    ordersResource.addMethod('DELETE', ordersFunctionIntegration, {
       //essa parte é para validacao da requisao para que invoque apenas se houver os parametros
-      requestParameters:{
-        'method.reques.querystring.email': true,
-        'method.reques.querystring.orderId': true
-      }
+      requestParameters: {
+        'method.request.querystring.email': true,
+        'method.request.querystring.orderId': true,
+      },
+      requestValidatorOptions: {
+        requestValidatorName: 'Email and OrderId parameters validator',
+        validateRequestParameters: true,
+      },
     });
-
+    const orderRequestValidator = new apigateway.RequestValidator(
+      this,
+      'OrderRequestValidator',
+      //validation
+      {
+        restApi: apiGW,
+        requestValidatorName: 'Order request validator',
+        validateRequestBody: true,
+      }
+    );
+    const orderModel = new apigateway.Model(this, 'OrderModel', {
+      //validation  evita invocar uma chamada de requisicao com paramentros errados
+      modelName: 'OrderModel',
+      restApi: apiGW,
+      contentType: 'application/json',
+      schema: {
+        type: apigateway.JsonSchemaType.OBJECT,
+        properties: {
+          email: {
+            type: apigateway.JsonSchemaType.STRING,
+          },
+          productIds: {
+            type: apigateway.JsonSchemaType.ARRAY,
+            minItems: 1,
+            items: {
+              type: apigateway.JsonSchemaType.STRING,
+            },
+          },
+          payment: {
+            type: apigateway.JsonSchemaType.STRING,
+            enum: ['CASH', 'DEBIT_CARD', 'CREDIT_CARD'],
+          },
+        },
+        required: ['email', 'productIds', 'payment'],
+      },
+    });
     //POST / orders
-    ordersResource.addMethod('POST', ordersFunctionIntegration);
+    ordersResource.addMethod('POST', ordersFunctionIntegration, {
+      //validation
+      requestValidator: orderRequestValidator,
+      requestModels: { 'application/json': orderModel },
+    });
   }
 }

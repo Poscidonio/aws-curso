@@ -13,6 +13,7 @@ AWS.config.update({
 });
 
 const ddbClient = new AWS.DynamoDB.DocumentClient();
+const snsClient = new AWS.SNS({ apiVersion: '2010-03-31' });
 exports.handler = async function (event, context) {
   const method = event.httpMethod;
 
@@ -74,6 +75,14 @@ exports.handler = async function (event, context) {
 
         const orderCreated = await createOrder(orderRequest, products);
 
+        const eventResult = await sendOrderEvent(
+          orderCreated,
+          'ORDER_CREATED',
+          lambdaRequestId
+        );
+        console.log(
+          `Order created event sent - OrderId: ${orderCreated.sk} - MessageId: ${eventResult.MessageId}`
+        );
         return {
           statusCode: 201,
           body: JSON.stringify(convertToOrderResponse(orderCreated)),
@@ -92,6 +101,14 @@ exports.handler = async function (event, context) {
       );
       console.log(data);
       if (data.Attributes) {
+        const eventResult = await sendOrderEvent(
+          data.Attributes,
+          'ORDER_DELETED',
+          lambdaRequestId
+        );
+        console.log(
+          `Order deleted event sent - OrderId: ${orderCreated.sk} - MessageId: ${eventResult.MessageId}`
+        );
         return {
           statusCode: 200,
           body: JSON.stringify(convertToOrderResponse(data.Attributes)),
@@ -130,6 +147,34 @@ exports.handler = async function (event, context) {
     body: JSON.stringify('Bad request'),
   };
 };
+
+function sendOrderEvent(order, eventType, lambdaRequestId) {
+  /* {
+    "enventType": " ORDER_DELETE"
+    "data": "{\"email\": \"matilde@cooxupe.com.br\", \"orderId\"}"
+  }*/
+  const productCodes = [];
+  order.products.forEach((product) => {
+    productCodes.push(product.code);
+  });
+  const orderEvent = {
+    email: order.pk,
+    orderId: order.sk,
+    billing: order.billing,
+    shipping: order.shipping,
+    requestId: lambdaRequestId,
+    productCodes: productCodes,
+  };
+  const envelope = {
+    eventType: eventType,
+    data: JSON.stringify(orderEvent),
+  };
+  const params = {
+    Message: JSON.stringify(envelope),
+    TopicArn: orderEventsTopicArn,
+  };
+  return snsClient.publish(params).promise();
+}
 function deleteOrder(email, orderId) {
   const params = {
     TableName: ordersDdb,
