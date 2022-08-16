@@ -90,8 +90,8 @@ exports.handler = async function (event, context) {
         event.queryStringParameters.email,
         event.queryStringParameters.orderId
       );
-      if (data) {
-        console.log(data);
+      console.log(data);
+      if (data.Attributes) {
         return {
           statusCode: 200,
           body: JSON.stringify(convertToOrderResponse(data.Attributes)),
@@ -102,7 +102,6 @@ exports.handler = async function (event, context) {
           body: JSON.stringify('Order not found'),
         };
       }
-      //tets
       /*
       const data = await getOrder(
         event.queryStringParameters.email,

@@ -49,7 +49,13 @@ export class ECommerceApiStack extends cdk.Stack {
     ordersResource.addMethod('GET', ordersFunctionIntegration);
 
     //DELETE /orders?email=guilhermeaugusto@cooxupe.com.br&orderId=123
-    ordersResource.addMethod('DELETE', ordersFunctionIntegration);
+    ordersResource.addMethod('DELETE', ordersFunctionIntegration,{
+      //essa parte é para validacao da requisao para que invoque apenas se houver os parametros
+      requestParameters:{
+        'method.reques.querystring.email': true,
+        'method.reques.querystring.orderId': true
+      }
+    });
 
     //POST / orders
     ordersResource.addMethod('POST', ordersFunctionIntegration);
