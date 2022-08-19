@@ -6,6 +6,7 @@ const xRay = AWSXray.captureAWS(require('aws-sdk'));
 
 const productsDdb = process.env.PRODUCTS_DDB;
 const ordersDdb = process.env.ORDERS_DDB;
+const orderEventsTopicArn = process.env.ORDERS_EVENTS_TOPIC_ARN;
 const awsRegion = process.env.AWS_REGION;
 
 AWS.config.update({
@@ -107,7 +108,7 @@ exports.handler = async function (event, context) {
           lambdaRequestId
         );
         console.log(
-          `Order deleted event sent - OrderId: ${orderCreated.sk} - MessageId: ${eventResult.MessageId}`
+          `Order deleted event sent - OrderId: ${data.Attributes.sk} - MessageId: ${eventResult.MessageId}`
         );
         return {
           statusCode: 200,

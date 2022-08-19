@@ -5,9 +5,11 @@ import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import { Construct } from 'constructs';
 import * as sns from 'aws-cdk-lib/aws-sns';
 import * as subs from 'aws-cdk-lib/aws-sns-subscriptions';
+import * as iam from 'aws-cdk-lib/aws-iam';
 
 interface OrdersApplicationStackProps extends cdk.StackProps {
   productsDdb: dynamodb.Table;
+  eventsDdb: dynamodb.Table;
 }
 
 export class OrdersApplicationStack extends cdk.Stack {
@@ -66,5 +68,46 @@ export class OrdersApplicationStack extends cdk.Stack {
     props.productsDdb.grantReadData(this.ordersHandler);
     ordersDdb.grantReadWriteData(this.ordersHandler);
     ordersTopic.grantPublish(this.ordersHandler);
+
+    const orderEventsHandler = new lambdaNodeJS.NodejsFunction(
+      this,
+      'OrdersEventsFunction',
+      {
+        functionName: 'OrdersEventsFunction',
+        entry: 'lambda/orders/ordersEventsFunction.js',
+        handler: 'handler',
+        memorySize: 128,
+        timeout: cdk.Duration.seconds(10),
+        tracing: lambda.Tracing.ACTIVE,
+        insightsVersion: lambda.LambdaInsightsVersion.VERSION_1_0_98_0,
+        bundling: {
+          minify: false,
+          sourceMap: false,
+        },
+        environment: {
+          EVENTS_DDB: props.eventsDdb.tableName,
+        },
+      }
+    );
+    ordersTopic.addSubscription(
+      new subs.LambdaSubscription(orderEventsHandler)
+    );
+    //edita o acesso do IAM autorizando ou negando o que se pode executar
+    const eventsDdbPolicy = new iam.PolicyStatement({
+      //permite
+      effect: iam.Effect.ALLOW,
+      //permite alterar apenas
+      actions: ['dynamodb:PutItem'],
+      //acessa apenas esse recurso, com a ação acima
+      resources: [props.eventsDdb.tableArn],
+      //condicoes que a acao pode realizar
+      conditions: {
+        ['ForAllValues:StringLike']: {
+          // faz se todos os valores forem iguais a variaveis abaixo
+          'dynamodb:LeadingKeys': ['#order_*'], // se a chave primaria tiver este formato começando com esse valor entre []
+        },
+      },
+    });
+    orderEventsHandler.addToRolePolicy(eventsDdbPolicy);
   }
 }

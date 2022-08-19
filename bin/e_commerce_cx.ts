@@ -11,7 +11,6 @@ import { OrdersApplicationStack } from '../lib/ordersApplication-stack';
 const app = new cdk.App();
 const env = {
   region: 'us-east-1',
-  
 };
 //criado para ver em qual ambiente esta sendo executado e gerenciamento de custos
 const tags = {
@@ -45,12 +44,14 @@ const ordersApplicationStack = new OrdersApplicationStack(
   'OrdersApplication',
   {
     productsDdb: productsDdbStack.table,
+    eventsDdb: eventsDdbStack.table,
     env: env,
     tags: tags,
   }
 );
 
 ordersApplicationStack.addDependency(productsDdbStack);
+ordersApplicationStack.addDependency(eventsDdbStack);
 
 const eCommerceApiStack = new ECommerceApiStack(app, 'ECommerceApi', {
   productsHandler: productsFunctionStack.productsHandler,
