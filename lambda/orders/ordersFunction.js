@@ -173,6 +173,12 @@ function sendOrderEvent(order, eventType, lambdaRequestId) {
   const params = {
     Message: JSON.stringify(envelope),
     TopicArn: orderEventsTopicArn,
+    MessageAttributes: {
+      eventType: {
+        DataType: 'String',
+        StringValue: eventType, //ORDER_CREATED | ORDER_DELETED
+      },
+    },
   };
   return snsClient.publish(params).promise();
 }

@@ -3,6 +3,8 @@ import * as lambdaNodeJS from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as cdk from 'aws-cdk-lib';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import { Construct } from 'constructs';
+import { ImagePullPrincipalType } from 'aws-cdk-lib/aws-codebuild';
+import * as iam from 'aws-cdk-lib/aws-iam';
 
 interface ProductsFunctionStackProps extends cdk.StackProps {
   productsDdb: dynamodb.Table;
@@ -34,7 +36,20 @@ export class ProductsFunctionStack extends cdk.Stack {
       }
     );
     //so sera permitido escrita nesta funcao
-    props.eventsDdb.grantWriteData(productsEventsHandler);
+    //props.eventsDdb.grantWriteData(productsEventsHandler);
+    // editando as permissoes do IAM na tabela
+    const eventsDdbPolicy = new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: ['dynamodb:PutItem'],
+      resources: [props.eventsDdb.tableArn],
+      conditions: {
+        ['ForAllValues:StringLike']: {
+          'dynamodb:LeadingKeys': ['#product_*'],
+        },
+      },
+    });
+    productsEventsHandler.addToRolePolicy(eventsDdbPolicy);
+
     this.productsHandler = new lambdaNodeJS.NodejsFunction(
       this,
       'ProductsFunction',

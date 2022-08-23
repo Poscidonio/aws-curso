@@ -37,7 +37,7 @@ function createEvent(productEvent) {
     const params = {
       TableName: eventsDdb,
       Item: {
-        pk: `#products_${productEvent.productCode}`,
+        pk: `#product_${productEvent.productCode}`,
         sk: `${productEvent.eventType}#${timestamp}`,
         ttl: ttl,
         email: productEvent.email,

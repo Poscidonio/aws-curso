@@ -6,6 +6,8 @@ import { Construct } from 'constructs';
 import * as sns from 'aws-cdk-lib/aws-sns';
 import * as subs from 'aws-cdk-lib/aws-sns-subscriptions';
 import * as iam from 'aws-cdk-lib/aws-iam';
+import * as sqs from 'aws-cdk-lib/aws-sqs';
+import * as lambdaEventsSourcce from 'aws-cdk-lib/aws-lambda-event-sources';
 
 interface OrdersApplicationStackProps extends cdk.StackProps {
   productsDdb: dynamodb.Table;
@@ -109,5 +111,71 @@ export class OrdersApplicationStack extends cdk.Stack {
       },
     });
     orderEventsHandler.addToRolePolicy(eventsDdbPolicy);
+
+    const paymentsHandler = new lambdaNodeJS.NodejsFunction(
+      this,
+      'PaymentsFunction',
+      {
+        functionName: 'PaymentsFunction',
+        entry: 'lambda/orders/paymentsFunction.js',
+        handler: 'handler',
+        memorySize: 128,
+        timeout: cdk.Duration.seconds(10),
+        tracing: lambda.Tracing.ACTIVE,
+        insightsVersion: lambda.LambdaInsightsVersion.VERSION_1_0_98_0,
+        bundling: {
+          minify: false,
+          sourceMap: false,
+        },
+      }
+    );
+    ordersTopic.addSubscription(
+      new subs.LambdaSubscription(paymentsHandler, {
+        filterPolicy: {
+          //filtra as mensagens que serao exibidas
+          eventType: sns.SubscriptionFilter.stringFilter({
+            //permitido
+            allowlist: ['ORDER_CREATED'],
+            //negado
+            denylist: ['OREDR_DELETED', 'ORDER_UPDATED'],
+          }),
+        },
+      })
+    );
+    //criando a fila
+    const orderEventsQueue = new sqs.Queue(this, 'OrderEventsQueue', {
+      queueName: 'order-events',
+    });
+    //escrevendo a fila no topico
+    ordersTopic.addSubscription(new subs.SqsSubscription(orderEventsQueue));
+
+    const orderEmailHandler = new lambdaNodeJS.NodejsFunction(
+      this,
+      'OrderEmailsFunction',
+      {
+        functionName: 'OrderEmailsFunction',
+        entry: 'lambda/orders/orderEmailsFunction.js',
+        handler: 'handler',
+        memorySize: 128,
+        timeout: cdk.Duration.seconds(10),
+        tracing: lambda.Tracing.ACTIVE,
+        insightsVersion: lambda.LambdaInsightsVersion.VERSION_1_0_98_0,
+        bundling: {
+          minify: false,
+          sourceMap: false,
+        },
+      }
+    );
+    //configuracao da fone de eventos lambda
+    orderEmailHandler.addEventSource(
+      new lambdaEventsSourcce.SqsEventSource(orderEventsQueue, {
+        //numero maximo de mensagens paa chamar a funcao
+        batchSize: 5,
+        enabled: true,
+        //espea por um minuto antes da execucao
+        maxBatchingWindow: cdk.Duration.minutes(1),
+      })
+    );
+    orderEventsQueue.grantConsumeMessages(orderEmailHandler);
   }
 }
