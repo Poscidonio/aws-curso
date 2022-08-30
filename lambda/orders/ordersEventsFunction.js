@@ -15,7 +15,9 @@ const ddbClient = new AWS.DynamoDB.DocumentClient();
 //funcao assincrona que retornara o evento e um contexto
 exports.handler = async function (event, context) {
   const promises = [];
-  //TODO - to be removed
+
+  throw 'Non valid event type';
+  /*   //TODO - to be removed
   //impri um log o que esta acontecendo no eventp nao é usual
 
   //lista de registros onde a funcao foi chamada
@@ -28,7 +30,7 @@ exports.handler = async function (event, context) {
     promises.push(createEvent(record.Sns));
   });
   await Promise.all(promises);
-  return {};
+  return {}; */
 };
 
 function createEvent(body) {
@@ -38,7 +40,7 @@ function createEvent(body) {
   console.log(`Creating order event - MessageId: ${body.MessageId}`);
 
   const timestamp = Date.now();
-  const ttl = ~~(timestamp / 1000 + 5 * 60); // 5 minutes ahead, in seconds
+  const ttl = ~~(timestamp / 1000 + 120 * 60); // 120 minutes ahead, in seconds
   const params = {
     TableName: eventsDdb,
     Item: {

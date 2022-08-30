@@ -16,7 +16,7 @@ interface OrdersApplicationStackProps extends cdk.StackProps {
 
 export class OrdersApplicationStack extends cdk.Stack {
   readonly ordersHandler: lambdaNodeJS.NodejsFunction;
-
+  readonly orderEventsFetchHandler: lambdaNodeJS.NodejsFunction;
   constructor(
     scope: Construct,
     id: string,
@@ -39,7 +39,33 @@ export class OrdersApplicationStack extends cdk.Stack {
       readCapacity: 1,
       writeCapacity: 1,
     });
+    //definindo as unidades de leitura
+    const readScale = ordersDdb.autoScaleReadCapacity({
+      maxCapacity: 2,
+      minCapacity: 1,
+    });
+    //defini uma porcentagem para acrescentar unidades de leitura de acordo com a utilizaçao
+    //ou seja ira acrescentar um a cada 80 %
+    readScale.scaleOnUtilization({
+      targetUtilizationPercent: 80,
+      //espera 60 segndos para subir ou descer a unidade de leitura
+      scaleInCooldown: cdk.Duration.seconds(120),
+      scaleOutCooldown: cdk.Duration.seconds(60),
+    });
 
+    //definindo as unidades de escrita
+    const writeScale = ordersDdb.autoScaleWriteCapacity({
+      maxCapacity: 4,
+      minCapacity: 1,
+    });
+    //defini uma porcentagem para acrescentar unidades de escrita de acordo com a utilizaçao
+    //ou seja ira acrescentar um a cada 20 %
+    writeScale.scaleOnUtilization({
+      targetUtilizationPercent: 20,
+      //espera 60 segndos para subir ou descer a unidade de escrita
+      scaleInCooldown: cdk.Duration.seconds(60),
+      scaleOutCooldown: cdk.Duration.seconds(60),
+    });
     const ordersTopic = new sns.Topic(this, 'OrderEventsTopic', {
       displayName: 'Orders events topic',
       topicName: 'order-events',
@@ -71,6 +97,9 @@ export class OrdersApplicationStack extends cdk.Stack {
     ordersDdb.grantReadWriteData(this.ordersHandler);
     ordersTopic.grantPublish(this.ordersHandler);
 
+    const orderEmailsDlq = new sqs.Queue(this, 'OrderEmailsDlq', {
+      queueName: 'order-emails-dlq',
+    });
     const orderEventsHandler = new lambdaNodeJS.NodejsFunction(
       this,
       'OrdersEventsFunction',
@@ -82,6 +111,9 @@ export class OrdersApplicationStack extends cdk.Stack {
         timeout: cdk.Duration.seconds(10),
         tracing: lambda.Tracing.ACTIVE,
         insightsVersion: lambda.LambdaInsightsVersion.VERSION_1_0_98_0,
+        deadLetterQueueEnabled: true,
+        deadLetterQueue: orderEmailsDlq,
+        retryAttempts: 2,
         bundling: {
           minify: false,
           sourceMap: false,
@@ -123,6 +155,7 @@ export class OrdersApplicationStack extends cdk.Stack {
         timeout: cdk.Duration.seconds(10),
         tracing: lambda.Tracing.ACTIVE,
         insightsVersion: lambda.LambdaInsightsVersion.VERSION_1_0_98_0,
+        deadLetterQueueEnabled: true,
         bundling: {
           minify: false,
           sourceMap: false,
@@ -142,9 +175,18 @@ export class OrdersApplicationStack extends cdk.Stack {
         },
       })
     );
+    //dlq fila para mensagens que nao foram executadas apos 3 tentativas
+    const orderEventsDlq = new sqs.Queue(this, 'OrderEventsDlq', {
+      queueName: 'order-events-dlq',
+      retentionPeriod: cdk.Duration.days(10),
+    });
     //criando a fila
     const orderEventsQueue = new sqs.Queue(this, 'OrderEventsQueue', {
       queueName: 'order-events',
+      deadLetterQueue: {
+        maxReceiveCount: 3,
+        queue: orderEventsDlq,
+      },
     });
     //escrevendo a fila no topico
     ordersTopic.addSubscription(new subs.SqsSubscription(orderEventsQueue));
@@ -173,9 +215,48 @@ export class OrdersApplicationStack extends cdk.Stack {
         batchSize: 5,
         enabled: true,
         //espea por um minuto antes da execucao
-        maxBatchingWindow: cdk.Duration.minutes(1),
+        maxBatchingWindow: cdk.Duration.seconds(10),
       })
     );
     orderEventsQueue.grantConsumeMessages(orderEmailHandler);
+
+    const orderEmailSesPolicy = new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: ['ses:SendEmail', 'ses:SendRawEmail'],
+      resources: ['*'],
+    });
+    orderEmailHandler.addToRolePolicy(orderEmailSesPolicy);
+
+    this.orderEventsFetchHandler = new lambdaNodeJS.NodejsFunction(
+      this,
+      'OrderEventsFetchFunction',
+      {
+        functionName: 'OrderEventsFetchFunction',
+        entry: 'lambda/orders/orderEventsFetchFunction.js',
+        handler: 'handler',
+        memorySize: 128,
+        timeout: cdk.Duration.seconds(10),
+        tracing: lambda.Tracing.ACTIVE,
+        insightsVersion: lambda.LambdaInsightsVersion.VERSION_1_0_98_0,
+        bundling: {
+          minify: false,
+          sourceMap: false,
+        },
+        environment: {
+          EVENTS_DDB: props.eventsDdb.tableName,
+        },
+      }
+    );
+    const eventsFetchDdbPolicy = new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: ['dynamodb:Query'],
+      resources: [`${props.eventsDdb.tableArn}/index/emailIdx`],
+      /* conditions: {
+        ['ForAllValues:StringLike']: {
+          'dynamodb:LeadingKeys': ['#order_*'],
+        },
+      }, */
+    });
+    this.orderEventsFetchHandler.addToRolePolicy(eventsFetchDdbPolicy);
   }
 }

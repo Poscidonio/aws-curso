@@ -14,7 +14,7 @@
     "@types/jest": "^27.5.2",
     "@types/node": "10.17.27",
     "@types/prettier": "2.6.0",
-    "aws-cdk": "^2.34.1",
+    "aws-cdk": "^2.39.1",
     "aws-sdk": "^2.1195.0",
     "jest": "^27.5.1",
     "ts-jest": "^27.1.4",
@@ -22,14 +22,9 @@
     "typescript": "~3.9.7"
   },
   "dependencies": {
-    "@aws-cdk/aws-apigateway": "^1.168.0",
-    "@aws-cdk/aws-lambda": "^1.168.0",
-    "@aws-cdk/aws-lambda-event-sources": "^1.168.0",
-    "@aws-cdk/aws-lambda-nodejs": "^1.168.0",
-    "@aws-cdk/aws-sns": "^1.168.0",
-    "@aws-cdk/aws-sns-subscriptions": "^1.168.0",
-    "@aws-cdk/aws-sqs": "^1.168.0",
-    "aws-cdk-lib": "2.34.1",
+    "@aws-cdk/aws-apigatewayv2-alpha": "^2.39.1-alpha.0",
+    "@aws-cdk/aws-apigatewayv2-integrations-alpha": "^2.39.1-alpha.0",
+    "aws-cdk-lib": "2.39.1",
     "aws-xray-sdk": "^3.3.6",
     "constructs": "^10.0.0",
     "source-map-support": "^0.5.21"

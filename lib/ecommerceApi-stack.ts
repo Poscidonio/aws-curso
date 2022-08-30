@@ -6,6 +6,7 @@ import { Construct } from 'constructs';
 interface ECommerceApiStackProps extends cdk.StackProps {
   productsHandler: lambdaNodeJS.NodejsFunction;
   ordersHandler: lambdaNodeJS.NodejsFunction;
+  orderEventsFetchHandler: lambdaNodeJS.NodejsFunction;
 }
 //implementacao da pilha
 export class ECommerceApiStack extends cdk.Stack {
@@ -102,5 +103,15 @@ export class ECommerceApiStack extends cdk.Stack {
       requestValidator: orderRequestValidator,
       requestModels: { 'application/json': orderModel },
     });
+    const orderEventsFetchIntegration = new apigateway.LambdaIntegration(
+      props.orderEventsFetchHandler
+    );
+
+    //resource - /orders/events
+    const orderEventsFetchResource = ordersResource.addResource('events');
+
+    //GET /orders/events?email=guilherme@cooxupe.com.br
+    //GET /orders/events?email=guilherme@cooxupe.com.br&eventType=ORDER_CREATED
+    orderEventsFetchResource.addMethod('GET', orderEventsFetchIntegration);
   }
 }

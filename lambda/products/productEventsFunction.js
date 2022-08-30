@@ -33,7 +33,7 @@ exports.handler = async function (event, context) {
 function createEvent(productEvent) {
   {
     const timestamp = Date.now();
-    const ttl = ~~(timestamp / 1000 + 5 * 60); // o ttl ira durar 5 minutos apos a execucao
+    const ttl = ~~(timestamp / 1000 + 120 * 60); // o ttl ira durar 5 minutos apos a execucao
     const params = {
       TableName: eventsDdb,
       Item: {

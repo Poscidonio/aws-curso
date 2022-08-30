@@ -22,8 +22,24 @@ export class EventsDdbStack extends cdk.Stack {
       timeToLiveAttribute: 'ttl',
       //Define o que acontece caso a stack seja destruida a tabela continua sem a stack
       removalPolicy: RemovalPolicy.DESTROY,
-
+      // billingMode: dynamodb.BillingMode.PAY_PER_REQUEST, pagamento por requisição é mais caro porem nao gargala o sistema
       billingMode: dynamodb.BillingMode.PROVISIONED,
+      readCapacity: 1,
+      writeCapacity: 1,
+    });
+    this.table.addGlobalSecondaryIndex({
+      indexName: 'emailIdx',
+      partitionKey: {
+        name: 'email',
+        type: dynamodb.AttributeType.STRING,
+      },
+      //prestar atencao na criacao do index porque depois é dificil mudar !!
+      //aqui seria 'sk'
+      sortKey: {
+        name: 'pk',
+        type: dynamodb.AttributeType.STRING,
+      },
+      projectionType: dynamodb.ProjectionType.ALL,
       readCapacity: 1,
       writeCapacity: 1,
     });
