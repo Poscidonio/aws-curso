@@ -29,29 +29,21 @@ const productsDdbStack = new ProductsDdbStack(app, 'ProductsDdb', {
   env: env,
   tags: tags,
 });
-const productsFunctionStack = new ProductsFunctionStack(
-  app,
-  'ProductsFunction',
-  {
-    productsDdb: productsDdbStack.table,
-    eventsDdb: eventsDdbStack.table,
-    env: env,
-    tags: tags,
-  }
-);
+const productsFunctionStack = new ProductsFunctionStack(app, 'ProductsFunction', {
+  productsDdb: productsDdbStack.table,
+  eventsDdb: eventsDdbStack.table,
+  env: env,
+  tags: tags,
+});
 productsFunctionStack.addDependency(productsDdbStack);
 productsFunctionStack.addDependency(eventsDdbStack);
 
-const ordersApplicationStack = new OrdersApplicationStack(
-  app,
-  'OrdersApplication',
-  {
-    productsDdb: productsDdbStack.table,
-    eventsDdb: eventsDdbStack.table,
-    env: env,
-    tags: tags,
-  }
-);
+const ordersApplicationStack = new OrdersApplicationStack(app, 'OrdersApplication', {
+  productsDdb: productsDdbStack.table,
+  eventsDdb: eventsDdbStack.table,
+  env: env,
+  tags: tags,
+});
 
 ordersApplicationStack.addDependency(productsDdbStack);
 ordersApplicationStack.addDependency(eventsDdbStack);
@@ -71,4 +63,8 @@ const invoiceWSApiStack = new InvoiceWSApiStack(app, 'InvoiceApi', {
     cost: 'InvoiceApp',
     team: 'SiecolaCode',
   },
+  //no curso ele ensina em outra regiao entao deve ser colocado toda vez o env na invocacao da Stack
+  env: env,
+  eventsDdb: eventsDdbStack.table,
 });
+invoiceWSApiStack.addDependency(eventsDdbStack);

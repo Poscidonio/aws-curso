@@ -9,6 +9,8 @@ AWS.config.update({
 });
 const sesClient = new AWS.SES({ apiVersion: '2010-12-01' });
 exports.handler = async function (event, context) {
+  throw 'Non valid event type';
+
   console.log('Order event');
   const promises = [];
 

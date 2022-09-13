@@ -21,9 +21,7 @@ exports.handler = async function (event, context) {
   const apiRequestId = event.requestContext.requestId;
   const lambdaRequestId = context.awsRequestId;
 
-  console.log(
-    `API Gateway RequestId: ${apiRequestId} - Lambda RequestId: ${lambdaRequestId}`
-  );
+  console.log(`API Gateway RequestId: ${apiRequestId} - Lambda RequestId: ${lambdaRequestId}`);
 
   if (event.resource === '/orders') {
     if (method === 'GET') {
@@ -49,9 +47,7 @@ exports.handler = async function (event, context) {
             }
           } else {
             //Get all orders from an user
-            const data = await getOdersByEmail(
-              event.queryStringParameters.email
-            );
+            const data = await getOdersByEmail(event.queryStringParameters.email);
             return {
               body: JSON.stringify(data.Items.map(convertToOrderResponse)),
             };
@@ -76,19 +72,14 @@ exports.handler = async function (event, context) {
 
         const orderCreated = await createOrder(orderRequest, products);
 
-        const eventResult = await sendOrderEvent(
-          orderCreated,
-          'ORDER_CREATED',
-          lambdaRequestId
-        );
-        console.log(
-          `Order created event sent - OrderId: ${orderCreated.sk} - MessageId: ${eventResult.MessageId}`
-        );
+        const eventResult = await sendOrderEvent(orderCreated, 'ORDER_CREATED', lambdaRequestId);
+        console.log(`Order created event sent - OrderId: ${orderCreated.sk} - MessageId: ${eventResult.MessageId}`);
         return {
           statusCode: 201,
           body: JSON.stringify(convertToOrderResponse(orderCreated)),
         };
       } else {
+        console.log('Some product was not found');
         return {
           statusCode: 404,
           body: 'Some product was not found',
@@ -96,20 +87,11 @@ exports.handler = async function (event, context) {
       }
     } else if (method === 'DELETE') {
       //Delete an order
-      const data = await deleteOrder(
-        event.queryStringParameters.email,
-        event.queryStringParameters.orderId
-      );
+      const data = await deleteOrder(event.queryStringParameters.email, event.queryStringParameters.orderId);
       console.log(data);
       if (data.Attributes) {
-        const eventResult = await sendOrderEvent(
-          data.Attributes,
-          'ORDER_DELETED',
-          lambdaRequestId
-        );
-        console.log(
-          `Order deleted event sent - OrderId: ${data.Attributes.sk} - MessageId: ${eventResult.MessageId}`
-        );
+        const eventResult = await sendOrderEvent(data.Attributes, 'ORDER_DELETED', lambdaRequestId);
+        console.log(`Order deleted event sent - OrderId: ${data.Attributes.sk} - MessageId: ${eventResult.MessageId}`);
         return {
           statusCode: 200,
           body: JSON.stringify(convertToOrderResponse(data.Attributes)),

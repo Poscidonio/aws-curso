@@ -8,6 +8,9 @@ import * as subs from 'aws-cdk-lib/aws-sns-subscriptions';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as sqs from 'aws-cdk-lib/aws-sqs';
 import * as lambdaEventsSourcce from 'aws-cdk-lib/aws-lambda-event-sources';
+import * as logs from 'aws-cdk-lib/aws-logs';
+import * as cw from 'aws-cdk-lib/aws-cloudwatch';
+import { ComparisonOperator } from 'aws-cdk-lib/aws-cloudwatch';
 
 interface OrdersApplicationStackProps extends cdk.StackProps {
   productsDdb: dynamodb.Table;
@@ -17,11 +20,7 @@ interface OrdersApplicationStackProps extends cdk.StackProps {
 export class OrdersApplicationStack extends cdk.Stack {
   readonly ordersHandler: lambdaNodeJS.NodejsFunction;
   readonly orderEventsFetchHandler: lambdaNodeJS.NodejsFunction;
-  constructor(
-    scope: Construct,
-    id: string,
-    props: OrdersApplicationStackProps
-  ) {
+  constructor(scope: Construct, id: string, props: OrdersApplicationStackProps) {
     super(scope, id, props);
 
     const ordersDdb = new dynamodb.Table(this, 'OrdersDdb', {
@@ -71,28 +70,24 @@ export class OrdersApplicationStack extends cdk.Stack {
       topicName: 'order-events',
     });
 
-    this.ordersHandler = new lambdaNodeJS.NodejsFunction(
-      this,
-      'OrdersFunction',
-      {
-        functionName: 'OrdersFunction',
-        entry: 'lambda/orders/ordersFunction.js',
-        handler: 'handler',
-        memorySize: 128,
-        timeout: cdk.Duration.seconds(10),
-        tracing: lambda.Tracing.ACTIVE,
-        insightsVersion: lambda.LambdaInsightsVersion.VERSION_1_0_98_0,
-        bundling: {
-          minify: false,
-          sourceMap: false,
-        },
-        environment: {
-          PRODUCTS_DDB: props.productsDdb.tableName,
-          ORDERS_DDB: ordersDdb.tableName,
-          ORDERS_EVENTS_TOPIC_ARN: ordersTopic.topicArn,
-        },
-      }
-    );
+    this.ordersHandler = new lambdaNodeJS.NodejsFunction(this, 'OrdersFunction', {
+      functionName: 'OrdersFunction',
+      entry: 'lambda/orders/ordersFunction.js',
+      handler: 'handler',
+      memorySize: 128,
+      timeout: cdk.Duration.seconds(10),
+      tracing: lambda.Tracing.ACTIVE,
+      insightsVersion: lambda.LambdaInsightsVersion.VERSION_1_0_98_0,
+      bundling: {
+        minify: false,
+        sourceMap: false,
+      },
+      environment: {
+        PRODUCTS_DDB: props.productsDdb.tableName,
+        ORDERS_DDB: ordersDdb.tableName,
+        ORDERS_EVENTS_TOPIC_ARN: ordersTopic.topicArn,
+      },
+    });
     props.productsDdb.grantReadData(this.ordersHandler);
     ordersDdb.grantReadWriteData(this.ordersHandler);
     ordersTopic.grantPublish(this.ordersHandler);
@@ -100,32 +95,26 @@ export class OrdersApplicationStack extends cdk.Stack {
     const orderEmailsDlq = new sqs.Queue(this, 'OrderEmailsDlq', {
       queueName: 'order-emails-dlq',
     });
-    const orderEventsHandler = new lambdaNodeJS.NodejsFunction(
-      this,
-      'OrdersEventsFunction',
-      {
-        functionName: 'OrdersEventsFunction',
-        entry: 'lambda/orders/ordersEventsFunction.js',
-        handler: 'handler',
-        memorySize: 128,
-        timeout: cdk.Duration.seconds(10),
-        tracing: lambda.Tracing.ACTIVE,
-        insightsVersion: lambda.LambdaInsightsVersion.VERSION_1_0_98_0,
-        deadLetterQueueEnabled: true,
-        deadLetterQueue: orderEmailsDlq,
-        retryAttempts: 2,
-        bundling: {
-          minify: false,
-          sourceMap: false,
-        },
-        environment: {
-          EVENTS_DDB: props.eventsDdb.tableName,
-        },
-      }
-    );
-    ordersTopic.addSubscription(
-      new subs.LambdaSubscription(orderEventsHandler)
-    );
+    const orderEventsHandler = new lambdaNodeJS.NodejsFunction(this, 'OrdersEventsFunction', {
+      functionName: 'OrdersEventsFunction',
+      entry: 'lambda/orders/ordersEventsFunction.js',
+      handler: 'handler',
+      memorySize: 128,
+      timeout: cdk.Duration.seconds(10),
+      tracing: lambda.Tracing.ACTIVE,
+      insightsVersion: lambda.LambdaInsightsVersion.VERSION_1_0_98_0,
+      deadLetterQueueEnabled: true,
+      deadLetterQueue: orderEmailsDlq,
+      retryAttempts: 2,
+      bundling: {
+        minify: false,
+        sourceMap: false,
+      },
+      environment: {
+        EVENTS_DDB: props.eventsDdb.tableName,
+      },
+    });
+    ordersTopic.addSubscription(new subs.LambdaSubscription(orderEventsHandler));
     //edita o acesso do IAM autorizando ou negando o que se pode executar
     const eventsDdbPolicy = new iam.PolicyStatement({
       //permite
@@ -144,24 +133,20 @@ export class OrdersApplicationStack extends cdk.Stack {
     });
     orderEventsHandler.addToRolePolicy(eventsDdbPolicy);
 
-    const paymentsHandler = new lambdaNodeJS.NodejsFunction(
-      this,
-      'PaymentsFunction',
-      {
-        functionName: 'PaymentsFunction',
-        entry: 'lambda/orders/paymentsFunction.js',
-        handler: 'handler',
-        memorySize: 128,
-        timeout: cdk.Duration.seconds(10),
-        tracing: lambda.Tracing.ACTIVE,
-        insightsVersion: lambda.LambdaInsightsVersion.VERSION_1_0_98_0,
-        deadLetterQueueEnabled: true,
-        bundling: {
-          minify: false,
-          sourceMap: false,
-        },
-      }
-    );
+    const paymentsHandler = new lambdaNodeJS.NodejsFunction(this, 'PaymentsFunction', {
+      functionName: 'PaymentsFunction',
+      entry: 'lambda/orders/paymentsFunction.js',
+      handler: 'handler',
+      memorySize: 128,
+      timeout: cdk.Duration.seconds(10),
+      tracing: lambda.Tracing.ACTIVE,
+      insightsVersion: lambda.LambdaInsightsVersion.VERSION_1_0_98_0,
+      deadLetterQueueEnabled: true,
+      bundling: {
+        minify: false,
+        sourceMap: false,
+      },
+    });
     ordersTopic.addSubscription(
       new subs.LambdaSubscription(paymentsHandler, {
         filterPolicy: {
@@ -180,6 +165,37 @@ export class OrdersApplicationStack extends cdk.Stack {
       queueName: 'order-events-dlq',
       retentionPeriod: cdk.Duration.days(10),
     });
+    //Metric
+    const numberOfMessagesMetric = orderEventsDlq.metricApproximateNumberOfMessagesVisible({
+      period: cdk.Duration.minutes(2),
+      statistic: 'Sum',
+    });
+    //Alarm
+    numberOfMessagesMetric.createAlarm(this, 'OrderEmailFail', {
+      alarmName: 'OrderEmailFail',
+      alarmDescription: 'Order email fail',
+      actionsEnabled: false,
+      evaluationPeriods: 1,
+      threshold: 5,
+      comparisonOperator: cw.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+    });
+
+    //Metric
+    const ageOfMessageMetric = orderEventsDlq.metricApproximateAgeOfOldestMessage({
+      period: cdk.Duration.minutes(2),
+      statistic: 'Maximum',
+      unit: cw.Unit.SECONDS,
+    });
+    //Alarn
+    ageOfMessageMetric.createAlarm(this, 'AgeOfMessagesInQueue', {
+      alarmName: 'AgeOfMessagesQueue',
+      alarmDescription: 'Maximum of messages in order events queue',
+      actionsEnabled: false,
+      evaluationPeriods: 1,
+      threshold: 60,
+      comparisonOperator: cw.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+    });
+
     //criando a fila
     const orderEventsQueue = new sqs.Queue(this, 'OrderEventsQueue', {
       queueName: 'order-events',
@@ -189,34 +205,40 @@ export class OrdersApplicationStack extends cdk.Stack {
       },
     });
     //escrevendo a fila no topico
-    ordersTopic.addSubscription(new subs.SqsSubscription(orderEventsQueue));
-
-    const orderEmailHandler = new lambdaNodeJS.NodejsFunction(
-      this,
-      'OrderEmailsFunction',
-      {
-        functionName: 'OrderEmailsFunction',
-        entry: 'lambda/orders/orderEmailsFunction.js',
-        handler: 'handler',
-        memorySize: 128,
-        timeout: cdk.Duration.seconds(10),
-        tracing: lambda.Tracing.ACTIVE,
-        insightsVersion: lambda.LambdaInsightsVersion.VERSION_1_0_98_0,
-        bundling: {
-          minify: false,
-          sourceMap: false,
+    ordersTopic.addSubscription(
+      new subs.SqsSubscription(orderEventsQueue, {
+        filterPolicy: {
+          eventType: sns.SubscriptionFilter.stringFilter({
+            allowlist: ['ORDER_CREATED'],
+          }),
         },
-      }
+      })
     );
+
+    const orderEmailHandler = new lambdaNodeJS.NodejsFunction(this, 'OrderEmailsFunction', {
+      functionName: 'OrderEmailsFunction',
+      entry: 'lambda/orders/orderEmailsFunction.js',
+      handler: 'handler',
+      memorySize: 128,
+      timeout: cdk.Duration.seconds(10),
+      tracing: lambda.Tracing.ACTIVE,
+      insightsVersion: lambda.LambdaInsightsVersion.VERSION_1_0_98_0,
+      bundling: {
+        minify: false,
+        sourceMap: false,
+      },
+    });
     //configuracao da fone de eventos lambda
     orderEmailHandler.addEventSource(
-      new lambdaEventsSourcce.SqsEventSource(orderEventsQueue, {
+      new lambdaEventsSourcce.SqsEventSource(
+        orderEventsQueue /*, {
         //numero maximo de mensagens paa chamar a funcao
         batchSize: 5,
         enabled: true,
         //espea por um minuto antes da execucao
         maxBatchingWindow: cdk.Duration.seconds(10),
-      })
+      }*/
+      )
     );
     orderEventsQueue.grantConsumeMessages(orderEmailHandler);
 
@@ -227,26 +249,22 @@ export class OrdersApplicationStack extends cdk.Stack {
     });
     orderEmailHandler.addToRolePolicy(orderEmailSesPolicy);
 
-    this.orderEventsFetchHandler = new lambdaNodeJS.NodejsFunction(
-      this,
-      'OrderEventsFetchFunction',
-      {
-        functionName: 'OrderEventsFetchFunction',
-        entry: 'lambda/orders/orderEventsFetchFunction.js',
-        handler: 'handler',
-        memorySize: 128,
-        timeout: cdk.Duration.seconds(10),
-        tracing: lambda.Tracing.ACTIVE,
-        insightsVersion: lambda.LambdaInsightsVersion.VERSION_1_0_98_0,
-        bundling: {
-          minify: false,
-          sourceMap: false,
-        },
-        environment: {
-          EVENTS_DDB: props.eventsDdb.tableName,
-        },
-      }
-    );
+    this.orderEventsFetchHandler = new lambdaNodeJS.NodejsFunction(this, 'OrderEventsFetchFunction', {
+      functionName: 'OrderEventsFetchFunction',
+      entry: 'lambda/orders/orderEventsFetchFunction.js',
+      handler: 'handler',
+      memorySize: 128,
+      timeout: cdk.Duration.seconds(10),
+      tracing: lambda.Tracing.ACTIVE,
+      insightsVersion: lambda.LambdaInsightsVersion.VERSION_1_0_98_0,
+      bundling: {
+        minify: false,
+        sourceMap: false,
+      },
+      environment: {
+        EVENTS_DDB: props.eventsDdb.tableName,
+      },
+    });
     const eventsFetchDdbPolicy = new iam.PolicyStatement({
       effect: iam.Effect.ALLOW,
       actions: ['dynamodb:Query'],
@@ -258,5 +276,37 @@ export class OrdersApplicationStack extends cdk.Stack {
       }, */
     });
     this.orderEventsFetchHandler.addToRolePolicy(eventsFetchDdbPolicy);
+
+    //metric
+    const productNotFoundMetricFilter = this.ordersHandler.logGroup.addMetricFilter('ProductNotFoundMetric', {
+      filterPattern: logs.FilterPattern.literal('Some product was not found'),
+      metricName: 'OrderWithNonValidProduct',
+      metricNamespace: 'ProductNotFound',
+    });
+    //Alarm
+    const ProductNotFoundAlarm = productNotFoundMetricFilter
+      .metric()
+      .with({
+        period: cdk.Duration.minutes(2),
+        statistic: 'Sum',
+      })
+      .createAlarm(this, 'ProductNotFoundAlarm', {
+        alarmName: 'OrderWithNonValidProduct',
+        alarmDescription: 'Some product was not found while creating a new order',
+        evaluationPeriods: 1,
+        threshold: 2,
+      });
+    //Alarm action
+
+    const orderAlarmsTopic = new sns.Topic(this, 'OrderAlarmsTopic', {
+      displayName: 'Order alarms topic',
+      topicName: 'order-alarms',
+    });
+    orderAlarmsTopic.addSubscription(new subs.EmailSubscription('guilhermeposcidonio@gmail.com'));
+    ProductNotFoundAlarm.addAlarmAction({
+      bind(): cw.AlarmActionConfig {
+        return { alarmActionArn: orderAlarmsTopic.topicArn };
+      },
+    });
   }
 }
