@@ -1,6 +1,7 @@
 import * as cdk from 'aws-cdk-lib';
 import * as apigateway from 'aws-cdk-lib/aws-apigateway';
 import * as lambdaNodeJS from 'aws-cdk-lib/aws-lambda-nodejs';
+import { DEFAULT_PRODUCT_STACK_SNAPSHOT_DIRECTORY } from 'aws-cdk-lib/aws-servicecatalog';
 import { Construct } from 'constructs';
 
 interface ECommerceApiStackProps extends cdk.StackProps {
@@ -19,9 +20,7 @@ export class ECommerceApiStack extends cdk.Stack {
       description: 'This is the Ecommerce service',
     });
 
-    const productsFunctionIntegration = new apigateway.LambdaIntegration(
-      props.productsHandler
-    );
+    const productsFunctionIntegration = new apigateway.LambdaIntegration(props.productsHandler);
     //opercao implementadas recursos
     const productsResource = apiGW.root.addResource('products');
     //GET /products / busca todo os produtos
@@ -37,9 +36,7 @@ export class ECommerceApiStack extends cdk.Stack {
     //DELETE /prodcts/{id} / deleta o produto por id
     productIdResource.addMethod('DELETE', productsFunctionIntegration);
 
-    const ordersFunctionIntegration = new apigateway.LambdaIntegration(
-      props.ordersHandler
-    );
+    const ordersFunctionIntegration = new apigateway.LambdaIntegration(props.ordersHandler);
 
     //orders
     const ordersResource = apiGW.root.addResource('orders');
@@ -98,14 +95,39 @@ export class ECommerceApiStack extends cdk.Stack {
       },
     });
     //POST / orders
-    ordersResource.addMethod('POST', ordersFunctionIntegration, {
+    const postOrder = ordersResource.addMethod('POST', ordersFunctionIntegration, {
       //validation
       requestValidator: orderRequestValidator,
       requestModels: { 'application/json': orderModel },
+      apiKeyRequired: true,
     });
-    const orderEventsFetchIntegration = new apigateway.LambdaIntegration(
-      props.orderEventsFetchHandler
-    );
+    const key = apiGW.addApiKey('ApiKey');
+    const plan = apiGW.addUsagePlan('UsagePlan', {
+      name: 'Basic plan',
+      throttle: {
+        rateLimit: 4,
+        burstLimit: 2,
+      },
+      quota: {
+        limit: 5,
+        period: apigateway.Period.DAY,
+      },
+    });
+    plan.addApiKey(key);
+
+    plan.addApiStage({
+      stage: apiGW.deploymentStage,
+      throttle: [
+        {
+          method: postOrder,
+          throttle: {
+            rateLimit: 4,
+            burstLimit: 2,
+          },
+        },
+      ],
+    });
+    const orderEventsFetchIntegration = new apigateway.LambdaIntegration(props.orderEventsFetchHandler);
 
     //resource - /orders/events
     const orderEventsFetchResource = ordersResource.addResource('events');

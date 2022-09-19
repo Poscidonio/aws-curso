@@ -19,9 +19,7 @@ exports.handler = async function (event, context) {
   const apiRequestId = event.requestContext.requestId;
   const lambdaRequestId = context.awsRequestId;
 
-  console.log(
-    `API Gateway RequestId: ${apiRequestId} - Lambda RequestId: ${lambdaRequestId}`
-  );
+  console.log(`API Gateway RequestId: ${apiRequestId} - Lambda RequestId: ${lambdaRequestId}`);
   if (event.resource === '/orders/events') {
     const email = event.queryStringParameters.email;
     const eventType = event.queryStringParameters.eventType;
@@ -48,7 +46,7 @@ exports.handler = async function (event, context) {
   };
 };
 function convertOrderEvents(Items) {
-  return items.map((item) => {
+  return Items.map((item) => {
     return {
       email: item.email,
       createAt: item.createAt,
@@ -69,7 +67,7 @@ function getOrderEventsByEmail(email) {
       prefix: 'ORDER_',
     },
   };
-  return ddbClient.query(params).promise();
+  return ddbClient.get(params).promise();
 }
 
 function getOrderEventsByEmailAndEventType(email, eventType) {
@@ -82,5 +80,5 @@ function getOrderEventsByEmailAndEventType(email, eventType) {
       eventType: eventType,
     },
   };
-  return ddbClient.query(params).promise();
+  return ddbClient.get(params).promise();
 }

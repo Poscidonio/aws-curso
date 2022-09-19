@@ -49,8 +49,17 @@ exports.handler = async function (event, context) {
   const object = await s3Client.getObject(params).promise();
   const invoice = JSON.parse(object.Body.toString('utf-8'));
 
-  const createInvoicePromise = createInvoice(invoice, key);
-  const deleteInvoicePromise = s3Client.deleteObject(params).promise();
+  let createInvoicePromise;
+  let deleteInvoicePromise;
+  let lastInvoiceStatus = 'INVOICE_PROCESSED';
+
+  if (invoice.invoiceNumber) {
+    createInvoicePromise = createInvoice(inoice, key);
+    deleteInvoicePromise = s3Client.deleteObject(params).promise();
+  } else {
+    console.error('No invoice number received');
+    lastInvoiceStatus = 'NO_INVOICE_NUMBER';
+  }
   if (invoiceTransaction) {
     await Promise.all([
       sendInvoiceStatus(invoiceTransaction.sk, invoiceTransaction.connectionId, 'INVOICE_PROCESSED'),

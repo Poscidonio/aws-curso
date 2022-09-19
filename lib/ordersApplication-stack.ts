@@ -38,6 +38,26 @@ export class OrdersApplicationStack extends cdk.Stack {
       readCapacity: 1,
       writeCapacity: 1,
     });
+
+    //metric
+    const writeThrotlleEventsMetric = ordersDdb.metric('WriteThrottleEvents', {
+      period: cdk.Duration.minutes(2),
+      statistic: 'SampleCount',
+      unit: cw.Unit.COUNT,
+    });
+
+    //Alarm
+    writeThrotlleEventsMetric.createAlarm(this, 'WritethrottleEventsAlarm', {
+      alarmName: 'WriteThrottleEvennts',
+      alarmDescription: 'Write throtlled events alarm in orders DDB',
+      actionsEnabled: false,
+      evaluationPeriods: 1,
+      threshold: 25,
+      comparisonOperator: cw.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+      treatMissingData: cw.TreatMissingData.NOT_BREACHING,
+    });
+    /*
+
     //definindo as unidades de leitura
     const readScale = ordersDdb.autoScaleReadCapacity({
       maxCapacity: 2,
@@ -57,7 +77,7 @@ export class OrdersApplicationStack extends cdk.Stack {
       maxCapacity: 4,
       minCapacity: 1,
     });
-    //defini uma porcentagem para acrescentar unidades de escrita de acordo com a utilizaçao
+    //define uma porcentagem para acrescentar unidades de escrita de acordo com a utilizaçao
     //ou seja ira acrescentar um a cada 20 %
     writeScale.scaleOnUtilization({
       targetUtilizationPercent: 20,
@@ -65,6 +85,9 @@ export class OrdersApplicationStack extends cdk.Stack {
       scaleInCooldown: cdk.Duration.seconds(60),
       scaleOutCooldown: cdk.Duration.seconds(60),
     });
+
+*/
+
     const ordersTopic = new sns.Topic(this, 'OrderEventsTopic', {
       displayName: 'Orders events topic',
       topicName: 'order-events',
